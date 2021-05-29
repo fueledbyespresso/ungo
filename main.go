@@ -10,7 +10,7 @@ import (
 	"ungo/game"
 )
 
-var hubs map[string]*game.Hub
+var hubs = make(map[string]*game.Hub)
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -67,22 +67,21 @@ func read(lobby *game.Hub, client *websocket.Conn) {
 			delete(lobby.Clients, client)
 			break
 		}
-		if message.Action == "CreateLobby"{
-			createLobby(message.Message, client)
-			delete(lobby.Clients, client)
-		}
 		log.Println(message)
 
+		if message.Action == "CreateLobby" {
+			delete(lobby.Clients, client)
+
+			if _, ok := hubs[message.Message]; !ok {
+				// Create a lobby
+				lobby = game.NewHub()
+				go lobby.Run()
+
+				hubs[message.Message] = lobby
+				lobby.Clients[client] = true
+			}
+		}
 		// Send a message to hub
 		lobby.Broadcast <- message
-	}
-}
-
-func createLobby(lobbyName string, client *websocket.Conn){
-	if _, ok := hubs[lobbyName]; ok {
-		// Create a lobby
-		newLobby := game.NewHub()
-		hubs[lobbyName] = newLobby
-		newLobby.Clients[client] = true
 	}
 }

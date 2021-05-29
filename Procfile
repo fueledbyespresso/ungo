@@ -1,2 +1,2 @@
-web: school-supply-list
+web: ungo
 release: npm run build

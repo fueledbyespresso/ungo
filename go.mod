@@ -1,3 +1,4 @@
+// +heroku goVersion 1.15.6
 module ungo
 
 go 1.15
