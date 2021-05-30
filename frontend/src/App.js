@@ -23,11 +23,14 @@ function App() {
         socket.onmessage = (e) => {
             let data = JSON.parse(e.data)
             switch (data.event) {
-                case "NewMessage":
-                    setMessage(data.message)
-                    break
-                default:
-                    break
+              case "NewMessage":
+                setMessage(data.message)
+                break;
+              case "Registered":
+                setUserName(data.message)
+                break;
+              default:
+                break
             }
             setMessage("Get message from server: " + data.message)
         };
@@ -35,31 +38,6 @@ function App() {
         return () => {
             socket.close()
         }
-    }, [])
-
-    const handleClick = useCallback((e) => {
-        e.preventDefault()
-
-        socket.send(JSON.stringify({
-            action: "",
-            message: inputValue
-        }))
-    }, [inputValue])
-
-    const handleChange = useCallback((e) => {
-        setInputValue(e.target.value)
-    }, [])
-
-    const handleCreateLobby = useCallback((e) => {
-        e.preventDefault()
-        socket.send(JSON.stringify({
-            action: "CreateLobby",
-            message: lobbyName
-        }))
-    }, [lobbyName])
-
-    const handleLobbyChange = useCallback((e) => {
-        setLobbyName(e.target.value)
     }, [])
 
     const handleSubmit = (e, username) => {
@@ -84,14 +62,6 @@ function App() {
             <JoinLobby/>
             <Players/>
             <Chat message={message}/>
-
-            <label>
-                Create Lobby
-                <input id="input" type="text" value={lobbyName} onChange={handleLobbyChange}/>
-                <button onClick={handleCreateLobby}>Send</button>
-            </label>
-            <input id="input" type="text" value={inputValue} onChange={handleChange}/>
-            <button onClick={handleClick}>Send</button>
         </div>
     );
 }

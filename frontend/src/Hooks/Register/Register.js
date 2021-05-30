@@ -6,11 +6,10 @@ export default function Register(props) {
     return (
         <label>
             Enter a username:
-            <input value={input} onChange={setInput}/>
+            <input value={input} onChange={e => setInput(e.target.value)}/>
             <button onClick={(e)=>props.handleSubmit(e, input)}>
                 Enter
             </button>
         </label>
     );
-
 }

@@ -46,12 +46,12 @@ func main() {
 			}
 			log.Printf("Closed!")
 		}()
+		log.Println("Connected!")
 
 		username := registerUser(mainLobby, ws)
 		// Add client
 		mainLobby.Clients[ws] = username
 
-		log.Println("Connected!")
 
 		// Listen on connection
 		read(mainLobby, ws, username)
