@@ -6,21 +6,26 @@ import (
 	"log"
 )
 
-type Message struct {
+type IncomingMessage struct {
 	Action string `json:"action"`
 	Message string `json:"message"`
 }
 
+type OutgoingMessage struct {
+	Event string `json:"event"`
+	Message string `json:"message"`
+}
+
 type Hub struct{
-	Clients   map[*websocket.Conn]bool
-	Broadcast chan Message
+	Clients   map[*websocket.Conn]string
+	Broadcast chan OutgoingMessage
 	PlayerListChange chan []string
 }
 
 func NewHub() *Hub {
 	return &Hub{
-		Clients:   make(map[*websocket.Conn]bool),
-		Broadcast: make(chan Message),
+		Clients:   make(map[*websocket.Conn]string),
+		Broadcast: make(chan OutgoingMessage),
 	}
 }
 

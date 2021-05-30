@@ -14,6 +14,7 @@ import (
 
 var hubs = make(map[string]*game.Hub)
 var mainLobby *game.Hub
+var players = make(map[string]int)
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -46,13 +47,14 @@ func main() {
 			log.Printf("Closed!")
 		}()
 
+		username := registerUser(mainLobby, ws)
 		// Add client
-		mainLobby.Clients[ws] = true
+		mainLobby.Clients[ws] = username
 
 		log.Println("Connected!")
 
 		// Listen on connection
-		read(mainLobby, ws)
+		read(mainLobby, ws, username)
 	})
 	err := http.ListenAndServe(":3000", r)
 	if err != nil {
@@ -61,9 +63,42 @@ func main() {
 	}
 }
 
-func read(lobby *game.Hub, client *websocket.Conn) {
+func registerUser(lobby *game.Hub, client *websocket.Conn) string {
+	username := ""
+	for username == "" {
+		var message game.IncomingMessage
+		err := client.ReadJSON(&message)
+		if !errors.Is(err, nil) {
+			log.Printf("error occurred: %v", err)
+			delete(lobby.Clients, client)
+			break
+		}
+
+		if message.Action == "Register" {
+			reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+			if err != nil {
+				log.Fatal(err)
+			}
+			temp := reg.ReplaceAllString(message.Message, "")
+			var response game.OutgoingMessage
+			if _, ok := players[temp]; !ok {
+				response.Event = "Registered"
+				username = temp
+				response.Message = username
+			}else{
+				response.Event = "UsernameInUse"
+			}
+			if err := client.WriteJSON(response); !errors.Is(err, nil) {
+				log.Printf("error occurred: %v", err)
+			}
+		}
+	}
+	return username
+}
+
+func read(lobby *game.Hub, client *websocket.Conn, username string) {
 	for {
-		var message game.Message
+		var message game.IncomingMessage
 		err := client.ReadJSON(&message)
 		if !errors.Is(err, nil) {
 			log.Printf("error occurred: %v", err)
@@ -72,24 +107,19 @@ func read(lobby *game.Hub, client *websocket.Conn) {
 		}
 		switch message.Action {
 		case "CreateLobby":
-			createLobby(lobby, client, message.Message)
+			createLobby(lobby, client, message.Message, username)
 		case "DeleteLobby":
 		case "JoinLobby":
-			joinLobby(lobby, client, message.Message)
+			joinLobby(lobby, client, message.Message, username)
 		case "ReturnToMainLobby":
-			delete(lobby.Clients, client)
-			lobby = mainLobby
-			lobby.Clients[client] = true
-			// Return all current lobbies
-			lobby.Broadcast <- message
-		case "SendMessage":
-			message.Action = "NewMessage"
-			lobby.Broadcast <- message
+			returnToMainLobby(lobby, client, username)
+		case "SendMessageToLobby":
+			sendMessageToLobby(lobby, message.Message)
 		}
 	}
 }
 
-func createLobby(lobby *game.Hub, client *websocket.Conn, lobbyName string) bool{
+func createLobby(lobby *game.Hub, client *websocket.Conn, lobbyName string, username string) bool{
 	delete(lobby.Clients, client)
 	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
 	if err != nil {
@@ -102,7 +132,7 @@ func createLobby(lobby *game.Hub, client *websocket.Conn, lobbyName string) bool
 		go lobby.Run()
 
 		hubs[processedString] = lobby
-		lobby.Clients[client] = true
+		lobby.Clients[client] = username
 	}
 	keys := make([]string, 0, len(hubs))
 
@@ -111,14 +141,14 @@ func createLobby(lobby *game.Hub, client *websocket.Conn, lobbyName string) bool
 	}
 	jsonString, _ := json.Marshal(keys)
 
-	message := game.Message{
-		Action:  "NewLobby",
+	message := game.OutgoingMessage{
+		Event:  "NewLobby",
 		Message: string(jsonString),
 	}
 	// Broadcast all current lobbies to main lobby
 	mainLobby.Broadcast <- message
 
-	players := make([]bool, 0, len(lobby.Clients))
+	players := make([]string, 0, len(lobby.Clients))
 
 	for _, player := range lobby.Clients {
 		players = append(players, player)
@@ -130,18 +160,39 @@ func createLobby(lobby *game.Hub, client *websocket.Conn, lobbyName string) bool
 	return true
 }
 
-func joinLobby(lobby *game.Hub, client *websocket.Conn, lobbyName string) {
+func joinLobby(lobby *game.Hub, client *websocket.Conn, lobbyName string, username string) {
 	if _, ok := hubs[lobbyName]; !ok {
 		// Create a lobby
 		lobby = game.NewHub()
 		go lobby.Run()
 
 		hubs[lobbyName] = lobby
-		lobby.Clients[client] = true
-		message := game.Message{
-			Action:  "PlayerChange",
+		lobby.Clients[client] = username
+		message := game.OutgoingMessage{
+			Event:  "PlayerChange",
 			Message: lobbyName,
 		}
 		lobby.Broadcast <- message
 	}
+}
+
+func returnToMainLobby(lobby *game.Hub, client *websocket.Conn, username string) {
+	delete(lobby.Clients, client)
+	lobby = mainLobby
+	lobby.Clients[client] = username
+	// Return all current lobbies
+	broadcast := game.OutgoingMessage{
+		Event:   "PlayerChange",
+		Message: "",
+	}
+	lobby.Broadcast <- broadcast
+}
+
+func sendMessageToLobby(lobby *game.Hub, message string) {
+	broadcast := game.OutgoingMessage{
+		Event:   "NewMessage",
+		Message: message,
+	}
+
+	lobby.Broadcast <- broadcast
 }
