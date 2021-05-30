@@ -14,6 +14,7 @@ type Message struct {
 type Hub struct{
 	Clients   map[*websocket.Conn]bool
 	Broadcast chan Message
+	PlayerListChange chan []string
 }
 
 func NewHub() *Hub {
@@ -26,6 +27,12 @@ func NewHub() *Hub {
 func (h *Hub) Run() {
 	for {
 		select {
+		case message := <-h.Broadcast:
+			for client := range h.Clients {
+				if err := client.WriteJSON(message); !errors.Is(err, nil) {
+					log.Printf("error occurred: %v", err)
+				}
+			}
 		case message := <-h.Broadcast:
 			for client := range h.Clients {
 				if err := client.WriteJSON(message); !errors.Is(err, nil) {

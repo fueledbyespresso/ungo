@@ -1,20 +1,18 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import './App.css';
+import React, {Fragment, useCallback, useEffect, useState} from 'react';
+import CreateLobby from "./Hooks/CreateLobby/CreateLobby";
+import JoinLobby from "./Hooks/JoinLobby/JoinLobby";
+import Players from "./Hooks/Players/Players";
+import Chat from "./Chat/Chat";
 
 const socket = new WebSocket("ws://127.0.0.1:3000/ws");
 
-function CreateLobby() {
-  return null;
-}
-
-function JoinLobby() {
-  return null;
-}
-
 function App() {
+  const [username, setUserName] = useState(null)
+
   const [message, setMessage] = useState('')
   const [inputValue, setInputValue] = useState('')
   const [lobbyName, setLobbyName] = useState('')
+  const [playerList, setPlayerList] = useState('')
 
   useEffect(() => {
     socket.onopen = () => {
@@ -22,7 +20,9 @@ function App() {
     };
 
     socket.onmessage = (e) => {
-      setMessage("Get message from server: " + e.data)
+      let data = JSON.parse(e.data)
+      console.log(data)
+      setMessage("Get message from server: " + data.message)
     };
 
     return () => {
@@ -57,16 +57,22 @@ function App() {
 
   return (
       <div className="App">
-        <CreateLobby/>
-        <JoinLobby/>
-        <label>
-            Create Lobby
-          <input id="input" type="text" value={lobbyName} onChange={handleLobbyChange} />
-          <button onClick={handleCreateLobby}>Send</button>
-        </label>
-        <input id="input" type="text" value={inputValue} onChange={handleChange} />
-        <button onClick={handleClick}>Send</button>
-        <pre>{message}</pre>
+        {username != null && (
+            <Fragment>
+              <CreateLobby/>
+              <JoinLobby/>
+              <Players/>
+              <Chat message = {message}/>
+
+              <label>
+                Create Lobby
+                <input id="input" type="text" value={lobbyName} onChange={handleLobbyChange} />
+                <button onClick={handleCreateLobby}>Send</button>
+              </label>
+              <input id="input" type="text" value={inputValue} onChange={handleChange} />
+              <button onClick={handleClick}>Send</button>
+            </Fragment>
+        )}
       </div>
   );
 }
