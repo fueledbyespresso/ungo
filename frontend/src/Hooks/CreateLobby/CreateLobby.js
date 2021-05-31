@@ -1,10 +1,19 @@
 import React from 'react';
 
-export default function CreateLobby() {
-    return (
-        <div>
-            <h3></h3>
-        </div>
-    );
+export default function CreateLobby(props) {
+    const handleSubmit = (e) => {
+        e.preventDefault()
+        props.ws.send(JSON.stringify({
+            action: "CreateLobby",
+            message: ""
+        }))
+    }
 
+    return (
+        <label>
+            <button onClick={(e) => handleSubmit(e)}>
+                Create Lobby
+            </button>
+        </label>
+    );
 }
