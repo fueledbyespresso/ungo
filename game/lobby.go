@@ -33,7 +33,6 @@ func (h *Hub) Run() {
 	for {
 		select {
 		case message := <-h.Broadcast:
-			println("SENDING TO")
 			for client, uname := range h.Clients {
 				println(uname)
 				if err := client.WriteJSON(message); !errors.Is(err, nil) {

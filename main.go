@@ -14,7 +14,6 @@ import (
 
 var hubs = make(map[string]*game.Hub)
 var mainLobby *game.Hub
-var players = make(map[string]int)
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -40,9 +39,13 @@ func main() {
 		}
 		defer func() {
 			delete(mainLobby.Clients, ws)
+			for _, hub := range hubs{
+				delete(hub.Clients, ws)
+			}
+
 			err := ws.Close()
 			if err != nil {
-				return 
+				return
 			}
 			log.Printf("Closed!")
 		}()
@@ -51,17 +54,51 @@ func main() {
 		username := registerUser(mainLobby, ws)
 		// Add client
 		mainLobby.Clients[ws] = username
-		println("Players:")
-		for player := range players {
-			println(player)
+		broadcastPlayerChange(mainLobby)
+		defer func() {
+			delete(hubs, username)
+			keys := make([]string, 0, len(hubs))
+			for k := range hubs {
+				keys = append(keys, k)
+			}
+			jsonString, _ := json.Marshal(keys)
+
+			// Broadcast all current lobbies to main lobby
+			mainLobby.Broadcast <- game.OutgoingMessage{
+				Event:  "NewLobby",
+				Message: string(jsonString),
+			}
+		}()
+		keys := make([]string, 0, len(hubs))
+		for k := range hubs {
+			keys = append(keys, k)
+		}
+		jsonString, _ := json.Marshal(keys)
+
+		// Broadcast all current lobbies to main lobby
+		mainLobby.Broadcast <- game.OutgoingMessage{
+			Event:  "NewLobby",
+			Message: string(jsonString),
 		}
 		// Listen on connection
 		read(mainLobby, ws, username)
 	})
-	err := http.ListenAndServe(":3000", r)
+	err := http.ListenAndServe(":5000", r)
 	if err != nil {
 		log.Println("Unable to bind to port")
 		return 
+	}
+}
+
+func broadcastPlayerChange(lobby *game.Hub) {
+	var players []string
+	for _, player := range lobby.Clients {
+		players = append(players, player)
+	}
+	playersJSON, _ := json.Marshal(players)
+	lobby.Broadcast <- game.OutgoingMessage{
+		Event:   "PlayerChange",
+		Message: string(playersJSON),
 	}
 }
 
@@ -81,13 +118,14 @@ func registerUser(lobby *game.Hub, client *websocket.Conn) string {
 			if err != nil {
 				log.Fatal(err)
 			}
+
 			temp := reg.ReplaceAllString(message.Message, "")
 			var response game.OutgoingMessage
-			if _, ok := players[temp]; !ok {
+			usernameTaken := playerExists(temp)
+			if !usernameTaken {
 				username = temp
 				response.Event = "Registered"
 				response.Message = username
-				players[username] = 0
 			}else{
 				response.Event = "UsernameInUse"
 			}
@@ -99,6 +137,25 @@ func registerUser(lobby *game.Hub, client *websocket.Conn) string {
 
 	return username
 }
+
+func playerExists(username string) bool {
+	for _,player := range mainLobby.Clients {
+		if username == player{
+			return true
+		}
+	}
+
+	for _, hub := range hubs {
+		for _,player := range hub.Clients {
+			if username == player{
+				return true
+			}
+		}
+	}
+	return false
+}
+
+
 
 func read(lobby *game.Hub, client *websocket.Conn, username string) {
 	for {
@@ -133,7 +190,6 @@ func createLobby(lobby *game.Hub, client *websocket.Conn, username string) bool{
 	delete(lobby.Clients, client)
 	newLobby := game.NewHub()
 	go newLobby.Run()
-
 	hubs[username] = newLobby
 	newLobby.Clients[client] = username
 
@@ -143,43 +199,38 @@ func createLobby(lobby *game.Hub, client *websocket.Conn, username string) bool{
 	}
 	jsonString, _ := json.Marshal(keys)
 
-	mainLobbyMessage := game.OutgoingMessage{
+	// Broadcast all current lobbies to main lobby
+	mainLobby.Broadcast <- game.OutgoingMessage{
 		Event:  "NewLobby",
 		Message: string(jsonString),
 	}
 
-	// Broadcast all current lobbies to main lobby
-	mainLobby.Broadcast <- mainLobbyMessage
-
-	newLobbyBroadcast := game.OutgoingMessage{
-		Event:  "PlayerChange",
-		Message: string(jsonString),
-	}
-	players := make([]string, 0, len(newLobby.Clients))
-
-	for _, player := range newLobby.Clients {
-		players = append(players, player)
-	}
-	jsonString, _ = json.Marshal(players)
-	newLobbyBroadcast.Message = string(jsonString)
-	//Broadcast all players to current lobby
-	newLobby.Broadcast <- newLobbyBroadcast
+	joinLobby(newLobby, client, username, username)
 	return true
 }
 
 func joinLobby(lobby *game.Hub, client *websocket.Conn, lobbyName string, username string) {
-	if _, ok := hubs[lobbyName]; !ok {
+	if _, ok := hubs[lobbyName]; ok {
 		// Create a lobby
 		lobby = game.NewHub()
 		go lobby.Run()
 
 		hubs[lobbyName] = lobby
 		lobby.Clients[client] = username
-		message := game.OutgoingMessage{
-			Event:  "PlayerChange",
-			Message: lobbyName,
+		players := make([]string, 0, len(lobby.Clients))
+		for _, player := range lobby.Clients {
+			players = append(players, player)
 		}
-		lobby.Broadcast <- message
+		jsonString, _ := json.Marshal(players)
+
+		lobby.Broadcast <- game.OutgoingMessage{
+			Event:  "JoinedLobby",
+			Message: username,
+		}
+		lobby.Broadcast <- game.OutgoingMessage{
+			Event:  "PlayerChange",
+			Message: string(jsonString),
+		}
 	}
 }
 

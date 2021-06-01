@@ -11,43 +11,47 @@ const socket = new WebSocket("ws://127.0.0.1:3000/ws");
 function App() {
     const [username, setUserName] = useState(null)
     const [inMainLobby, setInMainLobby] = useState(false)
-    const [message, setMessage] = useState([])
+    const [messages, setMessages] = useState([])
     const [inputValue, setInputValue] = useState('')
-    const [lobbies, setLobbies] = useState('')
+    const [lobbies, setLobbies] = useState([])
     const [lobbyName, setLobbyName] = useState('')
-    const [playerList, setPlayerList] = useState('')
+    const [playerList, setPlayerList] = useState([])
 
     useEffect(() => {
         socket.onopen = () => {
-            setMessage('Connected')
+            console.log("Connected")
         };
 
         socket.onmessage = (e) => {
             let data = JSON.parse(e.data)
+            setMessages(oldMessages => [...oldMessages, data.event])
+
             switch (data.event) {
                 case "NewMessage":
-                    setMessage(oldMessages => [...oldMessages, data.message]);
+                    setMessages(oldMessages => [...oldMessages, data.event])
                     break
                 case "Registered":
-                    setUserName(data.message)
                     setInMainLobby(true)
+                    setUserName(data.message)
                     break
                 case "PlayerChange":
-                    setPlayerList(data.message)
+                    setPlayerList(JSON.parse(data.message))
                     break
                 case "ReturnedToMainLobby":
                     setInMainLobby(true)
                     break
+                case "JoinedLobby":
+                    setLobbyName(data.message)
+                    setInMainLobby(false)
+                    break
                 case "NewLobby":
-                    console.log(data.message)
                     setLobbies(data.message)
                     break
                 default:
                     break
             }
-            setMessage("Get message from server: " + data.message)
         };
-    }, [lobbies])
+    }, [lobbies, messages])
 
     const handleSubmit = (e, username) => {
         e.preventDefault()
@@ -56,6 +60,13 @@ function App() {
             message: username
         }))
     }
+
+    const returnToMainLobby = () => {
+        socket.send(JSON.stringify({
+            action: "ReturnedToMainLobby",
+        }))
+    }
+
     // Force user to register on initial load
     if (username == null) {
         return (
@@ -64,22 +75,27 @@ function App() {
             </div>
         )
     }
+
     if (inMainLobby) {
         return (
             <div className="main-lobby">
-              <h2>Main Lobby</h2>
-              <CreateLobby ws={socket}/>
-              <Lobbies lobbyList={lobbies}/>
+                <h2>Main Lobby</h2>
+                <CreateLobby ws={socket}/>
+                <Lobbies lobbyList={lobbies} ws={socket}/>
+                <Chat messages={messages}/>
+                <Players playerList={playerList}/>
             </div>
         )
+    }else {
+        return (
+            <div className="App">
+                <h2>{lobbyName}'s Game</h2>
+                <button onClick={()=>returnToMainLobby}>Return to Main Menu</button>
+                <Players playerList={playerList}/>
+                <Chat messages={messages}/>
+            </div>
+        );
     }
-    return (
-        <div className="App">
-            <JoinLobby/>
-            <Players/>
-            <Chat message={message}/>
-        </div>
-    );
 }
 
 export default App;

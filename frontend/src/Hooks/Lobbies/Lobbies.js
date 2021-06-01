@@ -5,10 +5,17 @@ export default function Lobbies(props) {
         return null
     }
     let lobbiesArray = JSON.parse(props.lobbyList)
+    const joinLobby = (lobbyName) => {
+        props.ws.send(JSON.stringify({
+            action: "JoinLobby",
+            message: lobbyName
+        }))
+    }
     return (
         <div>
+            Lobbies
             {lobbiesArray.map((lobby)=>(
-                <div>{lobby}</div>
+                <button onClick={()=>joinLobby(lobby)}>{lobby}'s game</button>
             ))}
         </div>
     );
