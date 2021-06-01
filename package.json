@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "start": "cd frontend && npm install && npm start",
+    "build": "cd frontend && npm install && npm run build",
+    "test": "cd frontend && npm install && npm run test",
+    "eject": "cd frontend && npm install && npm run eject"
+  }
+}
