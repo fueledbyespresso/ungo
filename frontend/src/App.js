@@ -6,12 +6,16 @@ import Register from "./Hooks/Register/Register";
 import Lobbies from "./Hooks/Lobbies/Lobbies";
 
 const  HOST  = process.env.REACT_APP_HOST
-console.log(process.env)
-let defaultSecurity = "ws"
+const  PORT  = process.env.REACT_APP_PORT
+
+let wsPath
 if(process.env.NODE_ENV === "production"){
-    defaultSecurity = "wss"
+    wsPath = "wss://"+HOST+"/ws"
+}else {
+    wsPath = "ws://"+HOST+":"+PORT+"/ws"
 }
-const socket = new WebSocket(defaultSecurity + "://"+HOST+"/ws")
+
+const socket = new WebSocket(wsPath)
 
 function App() {
     const [username, setUserName] = useState(null)
@@ -55,6 +59,10 @@ function App() {
                     break
             }
         };
+
+        socket.onclose = () =>{
+            console.log("Connection closed")
+        }
     }, [lobbies, messages])
 
     const handleSubmit = (e, username) => {
@@ -82,12 +90,12 @@ function App() {
 
     if (inMainLobby) {
         return (
-            <div className="main-lobby">
+            <div className="app">
                 <h2>Main Lobby</h2>
                 <CreateLobby ws={socket}/>
                 <Lobbies lobbyList={lobbies} ws={socket}/>
-                <Chat messages={messages}/>
                 <Players playerList={playerList}/>
+                <Chat messages={messages}/>
             </div>
         )
     }else {

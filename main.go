@@ -96,7 +96,9 @@ func main() {
 		// Listen on connection
 		read(mainLobby, ws, username)
 	})
-	err := http.ListenAndServe(":"+os.Getenv("PORT"), r)
+	println(":"+os.Getenv("OUTPORT"))
+
+	err := http.ListenAndServe(":"+os.Getenv("OUTPORT"), r)
 	if err != nil {
 		log.Println("Unable to bind to port")
 		return 
