@@ -7,8 +7,8 @@ export default function Chat(props) {
     return (
         <div>
             <h3>Chat</h3>
-            {props.messages.map((message)=>(
-                <div>{message}</div>
+            {props.messages.map((message, k)=>(
+                <div key={k}>{message}</div>
             ))}
         </div>
     );

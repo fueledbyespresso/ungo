@@ -6,8 +6,8 @@ import Chat from "./Hooks/Chat/Chat";
 import Register from "./Hooks/Register/Register";
 import Lobbies from "./Hooks/Lobbies/Lobbies";
 
-const socket = new WebSocket("ws://127.0.0.1:3000/ws");
-
+const { REACT_APP_HOST, REACT_APP_PORT } = process.env;
+const socket = new WebSocket("ws://"+REACT_APP_HOST+":"+REACT_APP_PORT+"/ws");
 function App() {
     const [username, setUserName] = useState(null)
     const [inMainLobby, setInMainLobby] = useState(false)
@@ -63,7 +63,7 @@ function App() {
 
     const returnToMainLobby = () => {
         socket.send(JSON.stringify({
-            action: "ReturnedToMainLobby",
+            action: "ReturnToMainLobby",
         }))
     }
 
@@ -90,7 +90,7 @@ function App() {
         return (
             <div className="App">
                 <h2>{lobbyName}'s Game</h2>
-                <button onClick={()=>returnToMainLobby}>Return to Main Menu</button>
+                <button onClick={()=>returnToMainLobby()}>Return to Main Menu</button>
                 <Players playerList={playerList}/>
                 <Chat messages={messages}/>
             </div>

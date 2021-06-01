@@ -1,7 +1,7 @@
 import {React, useState} from 'react';
 
 export default function Register(props) {
-    const [input, setInput] = useState(null)
+    const [input, setInput] = useState("")
 
     return (
         <label>

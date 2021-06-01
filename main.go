@@ -3,11 +3,14 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"ungo/game"
 )
@@ -20,9 +23,19 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+//Load the environment variables from the projectvars.env file
+func initEnv() {
+	if _, err := os.Stat("projectvars.env"); err == nil {
+		err = godotenv.Load("projectvars.env")
+		if err != nil {
+			fmt.Println("Error loading environment.env")
+		}
+		fmt.Println("Current environment:", os.Getenv("ENV"))
+	}
+}
 func main() {
+	initEnv()
 	r := gin.Default()
-
 	r.Use(static.Serve("/", static.LocalFile("./frontend/build", true)))
 
 	// Create a hub
@@ -83,7 +96,7 @@ func main() {
 		// Listen on connection
 		read(mainLobby, ws, username)
 	})
-	err := http.ListenAndServe(":5000", r)
+	err := http.ListenAndServe(":"+os.Getenv("PORT"), r)
 	if err != nil {
 		log.Println("Unable to bind to port")
 		return 
@@ -244,8 +257,14 @@ func returnToMainLobby(lobby *game.Hub, client *websocket.Conn, username string)
 	}); !errors.Is(err, nil) {
 		log.Printf("error occurred: %v", err)
 	}
+	players := make([]string, 0, len(lobby.Clients))
+	for _, player := range lobby.Clients {
+		players = append(players, player)
+	}
+	jsonString, _ := json.Marshal(players)
 	broadcast := game.OutgoingMessage{
 		Event:   "PlayerChange",
+		Message: string(jsonString),
 	}
 	lobby.Broadcast <- broadcast
 }
