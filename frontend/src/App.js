@@ -1,18 +1,19 @@
 import React, {useEffect, useState} from 'react';
 import CreateLobby from "./Hooks/CreateLobby/CreateLobby";
-import JoinLobby from "./Hooks/JoinLobby/JoinLobby";
 import Players from "./Hooks/Players/Players";
 import Chat from "./Hooks/Chat/Chat";
 import Register from "./Hooks/Register/Register";
 import Lobbies from "./Hooks/Lobbies/Lobbies";
 
-const { REACT_APP_HOST, REACT_APP_PORT } = process.env;
-const socket = new WebSocket("ws://"+REACT_APP_HOST+":"+REACT_APP_PORT+"/ws");
+const  HOST  = process.env.REACT_APP_HOST
+const  PORT  = process.env.REACT_APP_PORT || process.env.PORT
+
+const socket = new WebSocket("ws://"+HOST+":"+PORT+"/ws")
+
 function App() {
     const [username, setUserName] = useState(null)
     const [inMainLobby, setInMainLobby] = useState(false)
     const [messages, setMessages] = useState([])
-    const [inputValue, setInputValue] = useState('')
     const [lobbies, setLobbies] = useState([])
     const [lobbyName, setLobbyName] = useState('')
     const [playerList, setPlayerList] = useState([])
