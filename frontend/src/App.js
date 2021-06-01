@@ -6,9 +6,8 @@ import Register from "./Hooks/Register/Register";
 import Lobbies from "./Hooks/Lobbies/Lobbies";
 
 const  HOST  = process.env.REACT_APP_HOST
-const  PORT  = process.env.REACT_APP_PORT || process.env.PORT
-
-const socket = new WebSocket("ws://"+HOST+":"+PORT+"/ws")
+console.log(process.env)
+const socket = new WebSocket("ws://"+HOST+"/ws")
 
 function App() {
     const [username, setUserName] = useState(null)
