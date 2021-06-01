@@ -7,7 +7,11 @@ import Lobbies from "./Hooks/Lobbies/Lobbies";
 
 const  HOST  = process.env.REACT_APP_HOST
 console.log(process.env)
-const socket = new WebSocket("wss://"+HOST+"/ws")
+let defaultSecurity = "ws"
+if(process.env.NODE_ENV === "production"){
+    defaultSecurity = "wss"
+}
+const socket = new WebSocket(defaultSecurity + "://"+HOST+"/ws")
 
 function App() {
     const [username, setUserName] = useState(null)
