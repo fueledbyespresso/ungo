@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/gorilla/websocket"
 	"log"
+	"sync"
 )
 
 type IncomingMessage struct {
@@ -24,6 +25,7 @@ type Hub struct{
 	Clockwise bool
 	CurrentTurn string
 	MostRecentCard Card
+	Mu sync.Mutex
 }
 
 type Player struct{

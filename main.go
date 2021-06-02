@@ -52,9 +52,15 @@ func main() {
 			log.Println(err)
 		}
 		defer func() {
-			delete(mainLobby.Clients, ws)
+			if _, ok := mainLobby.Clients[ws] ; ok{
+				removeClientFromHub(mainLobby, ws)
+				broadcastPlayerChange(mainLobby)
+			}
 			for _, hub := range hubs{
-				delete(hub.Clients, ws)
+				if _, ok := hub.Clients[ws] ; ok{
+					removeClientFromHub(hub, ws)
+					broadcastPlayerChange(hub)
+				}
 			}
 
 			err := ws.Close()
@@ -120,7 +126,7 @@ func registerUser(lobby *game.Hub, client *websocket.Conn) string {
 		err := client.ReadJSON(&message)
 		if !errors.Is(err, nil) {
 			log.Printf("error occurred: %v", err)
-			delete(lobby.Clients, client)
+			removeClientFromHub(lobby, client)
 			break
 		}
 
@@ -174,9 +180,11 @@ func read(lobby *game.Hub, client *websocket.Conn, username string) {
 		err := client.ReadJSON(&message)
 		if !errors.Is(err, nil) {
 			log.Printf("error occurred reading message: %v", err)
-			delete(lobby.Clients, client)
+			removeClientFromHub(lobby, client)
 			break
 		}
+		println("Attempting action: ", message.Action)
+
 		switch message.Action {
 		case "CreateLobby":
 			lobby = createLobby(lobby, client, username)
@@ -230,7 +238,7 @@ func startGame(lobby *game.Hub, client *websocket.Conn, username string) {
 }
 
 func createLobby(lobby *game.Hub, client *websocket.Conn, username string) *game.Hub{
-	delete(lobby.Clients, client)
+	removeClientFromHub(lobby, client)
 	newLobby := game.NewHub()
 	go newLobby.Run()
 	hubs[username] = newLobby
@@ -272,7 +280,7 @@ func joinLobby(client *websocket.Conn, lobbyName string, username string) *game.
 		}); !errors.Is(err, nil) {
 			log.Printf("error occurred: %v", err)
 		}
-		delete(mainLobby.Clients, client)
+		removeClientFromHub(mainLobby, client)
 		lobby.Clients[client] = player
 
 		broadcastPlayerChange(lobby)
@@ -370,7 +378,7 @@ func nextUser(lobby *game.Hub, username string) game.Player {
 }
 
 func returnToMainLobby(lobby *game.Hub, client *websocket.Conn, username string) *game.Hub{
-	delete(lobby.Clients, client)
+	removeClientFromHub(lobby, client)
 	mainLobby.Clients[client] = game.Player{
 		Username: username,
 		Hand:     nil,
@@ -410,6 +418,12 @@ func endGame(lobby *game.Hub) {
 		Event:  "LobbyChange",
 		Message: string(jsonString),
 	}
+}
+
+func removeClientFromHub(hub *game.Hub, client *websocket.Conn){
+	hub.Mu.Lock()
+	defer hub.Mu.Unlock()
+	delete(hub.Clients, client)
 }
 
 func sendMessageToLobby(lobby *game.Hub, message string) {

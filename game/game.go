@@ -2,7 +2,6 @@ package game
 
 import (
 	"math/rand"
-	"time"
 )
 
 type Card struct{
@@ -14,7 +13,6 @@ type Card struct{
 
 var colors = []string{"green", "yellow", "red", "blue"}
 func GenerateCard() Card{
-	rand.Seed(time.Now().UnixNano())
 	n := rand.Intn(100)
 
 	if n < 3 {
