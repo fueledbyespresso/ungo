@@ -28,6 +28,9 @@ function App() {
     const [lobbyName, setLobbyName] = useState('')
     const [playerList, setPlayerList] = useState([])
     const [hand, setHand] = useState([])
+    const [hands, setHands] = useState([])
+    const [currentCard, setCurrentCard] = useState(null)
+    const [currentPlayer, setCurrentPlayer] = useState(null)
 
     useEffect(() => {
         socket.onopen = () => {
@@ -68,6 +71,12 @@ function App() {
                     break
                 case "HandChanged":
                     setHand(JSON.parse(data.message))
+                    break
+                case "NextTurn":
+                    setCurrentPlayer(data.message)
+                    setHands(data.card_count)
+                    setCurrentCard(data.card_payload)
+
                     break
                 default:
                     break

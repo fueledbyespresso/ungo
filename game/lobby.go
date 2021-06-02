@@ -16,6 +16,8 @@ type IncomingMessage struct {
 type OutgoingMessage struct {
 	Event string `json:"event"`
 	Message string `json:"message"`
+	TurnInfo Card `json:"card_payload"`
+	CardCounts map[string]int `json:"card_count"`
 }
 
 type Hub struct{
@@ -25,7 +27,7 @@ type Hub struct{
 	Clockwise bool
 	CurrentTurn string
 	MostRecentCard Card
-	Mu sync.Mutex
+	Mu sync.RWMutex
 }
 
 type Player struct{
