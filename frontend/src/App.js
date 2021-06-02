@@ -18,8 +18,10 @@ if(process.env.NODE_ENV === "production"){
 const socket = new WebSocket(wsPath)
 
 function App() {
+    const [isConnected, setIsConnected] = useState(false)
     const [username, setUserName] = useState(null)
     const [inMainLobby, setInMainLobby] = useState(false)
+    const [gameStarted, setGameStarted] = useState(false)
     const [messages, setMessages] = useState([])
     const [lobbies, setLobbies] = useState([])
     const [lobbyName, setLobbyName] = useState('')
@@ -27,6 +29,7 @@ function App() {
 
     useEffect(() => {
         socket.onopen = () => {
+            setIsConnected(true)
             console.log("Connected")
         };
 
@@ -55,12 +58,20 @@ function App() {
                 case "NewLobby":
                     setLobbies(data.message)
                     break
+                case "LobbyChange":
+                    setLobbies(data.message)
+                    break
+                case "GameStarted":
+                    setGameStarted(true)
+                    break
                 default:
                     break
             }
         };
 
         socket.onclose = () =>{
+            setIsConnected(false)
+            setMessages(oldMessages => [...oldMessages, "Connection closed"])
             console.log("Connection closed")
         }
     }, [lobbies, messages])
@@ -79,6 +90,11 @@ function App() {
         }))
     }
 
+    const startGame = () => {
+        socket.send(JSON.stringify({
+            action: "StartGame",
+        }))
+    }
     // Force user to register on initial load
     if (username == null) {
         return (
@@ -105,6 +121,9 @@ function App() {
                 <button onClick={()=>returnToMainLobby()}>Return to Main Menu</button>
                 <Players playerList={playerList}/>
                 <Chat messages={messages}/>
+                {username === lobbyName && !gameStarted  &&
+                    <button onClick={startGame}>Start game</button>
+                }
             </div>
         );
     }
