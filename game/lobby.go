@@ -46,11 +46,13 @@ func (h *Hub) Run() {
 	for {
 		select {
 		case message := <-h.Broadcast:
+			h.Mu.RLock()
 			for client, _ := range h.Clients {
 				if err := client.WriteJSON(message); !errors.Is(err, nil) {
 					log.Printf("error occurred: %v", err)
 				}
 			}
+			h.Mu.RUnlock()
 		}
 	}
 }

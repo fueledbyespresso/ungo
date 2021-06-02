@@ -5,6 +5,7 @@ import Chat from "./Hooks/Chat/Chat";
 import Register from "./Hooks/Register/Register";
 import Lobbies from "./Hooks/Lobbies/Lobbies";
 import Hand from "./Hooks/Hand/Hand";
+import CardCounts from "./Hooks/CardCounts/CardCounts";
 
 const  HOST  = process.env.REACT_APP_HOST
 const  PORT  = process.env.REACT_APP_PORT
@@ -67,12 +68,17 @@ function App() {
                     setLobbies(data.message)
                     break
                 case "GameStarted":
+                    setCurrentCard(data.card_payload)
+                    setCurrentPlayer(data.message)
+                    setHands(data.card_count)
                     setGameStarted(true)
+
                     break
                 case "HandChanged":
                     setHand(JSON.parse(data.message))
                     break
                 case "NextTurn":
+                    console.log(data)
                     setCurrentPlayer(data.message)
                     setHands(data.card_count)
                     setCurrentCard(data.card_payload)
@@ -131,14 +137,28 @@ function App() {
     }else {
         return (
             <div className="App">
+                <div>Hello, {username}</div>
                 <h2>{lobbyName}'s Game</h2>
                 <button onClick={()=>returnToMainLobby()}>Return to Main Menu</button>
                 <Players playerList={playerList}/>
-                <Chat messages={messages}/>
+                <CardCounts hands={hands}/>
                 {username === lobbyName && !gameStarted  &&
                     (<button onClick={startGame}>Start game</button>)
                 }
+                {gameStarted &&
+                    <div>
+                        <h3>Top Card: </h3>
+                        <div className={"uno-card"} style={{borderColor: currentCard.Color}}>
+                            <div>{currentCard.Type}</div>
+                            <div>{currentCard.Number}</div>
+                            <div>{currentCard.Color}</div>
+                        </div>
+                    </div>
+                }
+                {gameStarted && <h2>Next Turn: {currentPlayer}</h2>}
+
                 {gameStarted && <Hand cards={hand} ws={socket}/>}
+                <Chat messages={messages}/>
             </div>
         );
     }

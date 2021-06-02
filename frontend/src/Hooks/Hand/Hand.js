@@ -1,4 +1,6 @@
 import {React, useEffect} from 'react';
+import "./Hand.scss"
+import UnoCard from "./UnoCard";
 
 export default function Hand(props) {
     console.log(props.cards)
@@ -6,24 +8,14 @@ export default function Hand(props) {
     if(props.cards.length === 0){
         return null
     }
-
-    const playCard = (card) => {
-        props.ws.send(JSON.stringify({
-            action: "TakeTurn",
-            card_payload: card
-        }))
-    }
     return (
         <div>
             <h3>Chat</h3>
-            {props.cards.map((card, k)=>(
-                <div key={k}>
-                    <div>{card.Type}</div>
-                    <div>{card.Number}</div>
-                    <div>{card.Color}</div>
-                    <button onClick={()=>playCard(card)}>Play Card</button>
-                </div>
-            ))}
+            <div className={"hand"}>
+                {props.cards.map((card, k)=>(
+                    <UnoCard cardInfo={card} ws={props.ws} key={k+card.Color+card.Type+card.Number}/>
+                ))}
+            </div>
         </div>
     );
 }

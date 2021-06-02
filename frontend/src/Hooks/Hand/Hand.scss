@@ -1,0 +1,18 @@
+.hand{
+  display: flex;
+  flex-flow: row wrap;
+}
+
+.uno-card{
+  box-sizing: border-box;
+  border: .15em solid;
+  border-radius: .5em;
+  padding: .5em;
+  width: 10em;
+  height: 20em;
+  margin: .5em;
+
+  button{
+    margin-top: 100%;
+  }
+}
