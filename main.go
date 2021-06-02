@@ -72,6 +72,7 @@ func main() {
 		}
 		broadcastPlayerChange(mainLobby)
 		defer func() {
+			fmt.Println("Player Disconnected: ", username)
 			if hub, ok := hubs[username]; ok {
 				endGame(hub)
 				return
@@ -190,12 +191,12 @@ func read(lobby *game.Hub, client *websocket.Conn, username string) {
 		}
 		switch message.Action {
 		case "CreateLobby":
-			createLobby(lobby, client, username)
+			lobby = createLobby(lobby, client, username)
 			break
 		case "DeleteLobby":
 			break
 		case "JoinLobby":
-			joinLobby(client, message.Message, username)
+			lobby = joinLobby(client, message.Message, username)
 			break
 		case "StartGame":
 			startGame(lobby, client, username)
@@ -204,7 +205,7 @@ func read(lobby *game.Hub, client *websocket.Conn, username string) {
 			takeTurn(lobby, client, message.TurnInfo, username)
 			break
 		case "ReturnToMainLobby":
-			returnToMainLobby(lobby, client, username)
+			lobby = returnToMainLobby(lobby, client, username)
 			break
 		case "SendMessageToLobby":
 			sendMessageToLobby(lobby, message.Message)
@@ -240,7 +241,7 @@ func startGame(lobby *game.Hub, client *websocket.Conn, username string) {
 	}
 }
 
-func createLobby(lobby *game.Hub, client *websocket.Conn, username string) bool{
+func createLobby(lobby *game.Hub, client *websocket.Conn, username string) *game.Hub{
 	delete(lobby.Clients, client)
 	newLobby := game.NewHub()
 	go newLobby.Run()
@@ -261,10 +262,10 @@ func createLobby(lobby *game.Hub, client *websocket.Conn, username string) bool{
 	}
 
 	joinLobby(client, username, username)
-	return true
+	return newLobby
 }
 
-func joinLobby(client *websocket.Conn, lobbyName string, username string) {
+func joinLobby(client *websocket.Conn, lobbyName string, username string) *game.Hub{
 	if lobby, ok := hubs[lobbyName]; ok {
 		if len(lobby.Clients) > 4{
 			if err := client.WriteJSON(game.OutgoingMessage{
@@ -272,12 +273,10 @@ func joinLobby(client *websocket.Conn, lobbyName string, username string) {
 			}); !errors.Is(err, nil) {
 				log.Printf("error occurred: %v", err)
 			}
-			return
+			return mainLobby
 		}
 		player := lobby.Clients[client]
 		player.Username = username
-
-		lobby.Clients[client] = player
 
 		if err := client.WriteJSON(game.OutgoingMessage{
 			Event:   "JoinedLobby",
@@ -285,15 +284,20 @@ func joinLobby(client *websocket.Conn, lobbyName string, username string) {
 		}); !errors.Is(err, nil) {
 			log.Printf("error occurred: %v", err)
 		}
+		delete(mainLobby.Clients, client)
+		lobby.Clients[client] = player
+
 		broadcastPlayerChange(lobby)
 		broadcastPlayerChange(mainLobby)
-	}else{
-		if err := client.WriteJSON(game.OutgoingMessage{
-			Event:   "CannotJoin",
-		}); !errors.Is(err, nil) {
-			log.Printf("error occurred: %v", err)
-		}
+		return lobby
 	}
+	if err := client.WriteJSON(game.OutgoingMessage{
+		Event:   "CannotJoin",
+	}); !errors.Is(err, nil) {
+		log.Printf("error occurred: %v", err)
+	}
+
+	return mainLobby
 }
 
 func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, username string) {
@@ -377,7 +381,7 @@ func nextUser(lobby *game.Hub, username string) game.Player {
 	}
 }
 
-func returnToMainLobby(lobby *game.Hub, client *websocket.Conn, username string) {
+func returnToMainLobby(lobby *game.Hub, client *websocket.Conn, username string) *game.Hub{
 	delete(lobby.Clients, client)
 	mainLobby.Clients[client] = game.Player{
 		Username: username,
@@ -393,14 +397,13 @@ func returnToMainLobby(lobby *game.Hub, client *websocket.Conn, username string)
 	}
 	if hubs[username] == lobby{
 		endGame(lobby)
-		return
-	}
+ 	}
 
 	broadcastPlayerChange(mainLobby)
+	return mainLobby
 }
 
 func endGame(lobby *game.Hub) {
-
 	for con, player := range lobby.Clients {
 		returnToMainLobby(lobby, con, player.Username)
 	}

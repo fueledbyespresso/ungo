@@ -4,6 +4,7 @@ import Players from "./Hooks/Players/Players";
 import Chat from "./Hooks/Chat/Chat";
 import Register from "./Hooks/Register/Register";
 import Lobbies from "./Hooks/Lobbies/Lobbies";
+import Hand from "./Hooks/Hand/Hand";
 
 const  HOST  = process.env.REACT_APP_HOST
 const  PORT  = process.env.REACT_APP_PORT
@@ -26,6 +27,7 @@ function App() {
     const [lobbies, setLobbies] = useState([])
     const [lobbyName, setLobbyName] = useState('')
     const [playerList, setPlayerList] = useState([])
+    const [hand, setHand] = useState([])
 
     useEffect(() => {
         socket.onopen = () => {
@@ -63,6 +65,9 @@ function App() {
                     break
                 case "GameStarted":
                     setGameStarted(true)
+                    break
+                case "HandChanged":
+                    setHand(JSON.parse(data.message))
                     break
                 default:
                     break
@@ -122,8 +127,9 @@ function App() {
                 <Players playerList={playerList}/>
                 <Chat messages={messages}/>
                 {username === lobbyName && !gameStarted  &&
-                    <button onClick={startGame}>Start game</button>
+                    (<button onClick={startGame}>Start game</button>)
                 }
+                {gameStarted && <Hand cards={hand}/>}
             </div>
         );
     }

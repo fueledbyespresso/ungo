@@ -21,7 +21,6 @@ type OutgoingMessage struct {
 type Hub struct{
 	Clients   map[*websocket.Conn]Player
 	Broadcast chan OutgoingMessage
-	PlayerListChange chan []string
 	GameStarted bool
 	Clockwise bool
 	CurrentTurn string
