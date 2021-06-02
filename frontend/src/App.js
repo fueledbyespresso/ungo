@@ -129,7 +129,7 @@ function App() {
                 {username === lobbyName && !gameStarted  &&
                     (<button onClick={startGame}>Start game</button>)
                 }
-                {gameStarted && <Hand cards={hand}/>}
+                {gameStarted && <Hand cards={hand} ws={socket}/>}
             </div>
         );
     }

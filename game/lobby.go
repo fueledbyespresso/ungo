@@ -15,7 +15,6 @@ type IncomingMessage struct {
 type OutgoingMessage struct {
 	Event string `json:"event"`
 	Message string `json:"message"`
-	TurnInfo Card `json:"card_payload"`
 }
 
 type Hub struct{

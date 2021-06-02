@@ -77,18 +77,6 @@ func main() {
 				endGame(hub)
 				return
 			}
-			delete(hubs, username)
-			keys := make([]string, 0, len(hubs))
-			for k := range hubs {
-				keys = append(keys, k)
-			}
-			jsonString, _ := json.Marshal(keys)
-
-			// Broadcast all current lobbies to main lobby
-			mainLobby.Broadcast <- game.OutgoingMessage{
-				Event:  "LobbyChange",
-				Message: string(jsonString),
-			}
 		}()
 		keys := make([]string, 0, len(hubs))
 		for k := range hubs {
@@ -407,10 +395,20 @@ func endGame(lobby *game.Hub) {
 	for con, player := range lobby.Clients {
 		returnToMainLobby(lobby, con, player.Username)
 	}
+	var keys []string
+	for s, hub := range hubs {
+		if hub == lobby{
+			delete(hubs, s)
+		}else{
+			keys = append(keys, s)
+		}
+	}
+	jsonString, _ := json.Marshal(keys)
 
-	players := make([]string, 0, len(mainLobby.Clients))
-	for _, player := range mainLobby.Clients {
-		players = append(players, player.Username)
+	// Broadcast all current lobbies to main lobby
+	mainLobby.Broadcast <- game.OutgoingMessage{
+		Event:  "LobbyChange",
+		Message: string(jsonString),
 	}
 }
 

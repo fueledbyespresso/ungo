@@ -7,6 +7,12 @@ export default function Hand(props) {
         return null
     }
 
+    const playCard = (card) => {
+        props.ws.send(JSON.stringify({
+            action: "TakeTurn",
+            card_payload: card
+        }))
+    }
     return (
         <div>
             <h3>Chat</h3>
@@ -15,6 +21,7 @@ export default function Hand(props) {
                     <div>{card.Type}</div>
                     <div>{card.Number}</div>
                     <div>{card.Color}</div>
+                    <button onClick={()=>playCard(card)}>Play Card</button>
                 </div>
             ))}
         </div>
