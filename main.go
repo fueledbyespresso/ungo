@@ -103,9 +103,15 @@ func main() {
 		// Listen on connection
 		read(mainLobby, ws, username)
 	})
-	println(":"+os.Getenv("OUTPORT"))
 
-	err := http.ListenAndServe(":"+os.Getenv("OUTPORT"), r)
+	var port string
+	if os.Getenv("ENV") == "PROD" {
+		port = os.Getenv("PORT")
+	}else{
+		port = os.Getenv("DEVPORT")
+	}
+	println("Running on :" + port)
+	err := http.ListenAndServe(":"+port, r)
 	if err != nil {
 		log.Println("Unable to bind to port")
 		return 
