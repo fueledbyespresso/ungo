@@ -214,6 +214,9 @@ func read(lobby *game.Hub, client *websocket.Conn, username string) {
 		case "TakeTurn":
 			takeTurn(lobby, client, message.TurnInfo, username)
 			break
+		case "Draw":
+			drawCard(lobby, client, username)
+			break
 		case "ReturnToMainLobby":
 			lobby = returnToMainLobby(lobby, client, username)
 			break
@@ -340,6 +343,27 @@ func joinLobby(client *websocket.Conn, lobbyName string, username string) *game.
 	return mainLobby
 }
 
+func drawCard(lobby *game.Hub, client *websocket.Conn, username string) {
+	lobby.Mu.RLock()
+	curTurn := lobby.CurrentTurn
+	lobby.Mu.RUnlock()
+	if curTurn == username {
+		lobby.Mu.Lock()
+		player := lobby.Clients[client]
+		player.Hand = append(player.Hand, game.GenerateCard())
+		lobby.Clients[client] = player
+		jsonString,_ := json.Marshal(lobby.Clients[client].Hand)
+		fmt.Println(lobby.Clients[client].Hand)
+		if err := client.WriteJSON(game.OutgoingMessage{
+			Event:   "HandChanged",
+			Message: string(jsonString),
+		}); !errors.Is(err, nil) {
+			log.Printf("error occurred: %v", err)
+		}
+		lobby.Mu.Unlock()
+	}
+}
+
 func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, username string) {
 	lobby.Mu.RLock()
 	curTurn := lobby.CurrentTurn
@@ -437,7 +461,7 @@ func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, use
 		}
 
 		time.Sleep(1000)
-		lobby.Mu.Lock()
+		lobby.Mu.RLock()
 		jsonString,_ := json.Marshal(lobby.Clients[client].Hand)
 		fmt.Println(lobby.Clients[client].Hand)
 		if err := client.WriteJSON(game.OutgoingMessage{
@@ -446,7 +470,7 @@ func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, use
 		}); !errors.Is(err, nil) {
 			log.Printf("error occurred: %v", err)
 		}
-		lobby.Mu.Unlock()
+		lobby.Mu.RUnlock()
 	} else {
 		if err := client.WriteJSON(game.OutgoingMessage{
 			Event:   "TurnUnavailable",
@@ -508,7 +532,10 @@ func returnToMainLobby(lobby *game.Hub, client *websocket.Conn, username string)
 		Username: username,
 		Hand:     nil,
 	}
+	mainLobby.Mu.RLock()
 	player := mainLobby.Clients[client]
+	mainLobby.Mu.RUnlock()
+
 	player.Username = username
 	// Return all current lobbies
 	if err := client.WriteJSON(game.OutgoingMessage{
@@ -525,10 +552,16 @@ func returnToMainLobby(lobby *game.Hub, client *websocket.Conn, username string)
 }
 
 func endGame(lobby *game.Hub) {
+	lobby.Mu.RLock()
 	for con, player := range lobby.Clients {
+		lobby.Mu.RUnlock()
 		returnToMainLobby(lobby, con, player.Username)
+		lobby.Mu.RLock()
 	}
+	lobby.Mu.RUnlock()
+
 	var keys []string
+	hubsMU.Lock()
 	for s, hub := range hubs {
 		if hub == lobby{
 			delete(hubs, s)
@@ -536,8 +569,8 @@ func endGame(lobby *game.Hub) {
 			keys = append(keys, s)
 		}
 	}
+	hubsMU.Unlock()
 	jsonString, _ := json.Marshal(keys)
-
 	// Broadcast all current lobbies to main lobby
 	mainLobby.Broadcast <- game.OutgoingMessage{
 		Event:  "LobbyChange",

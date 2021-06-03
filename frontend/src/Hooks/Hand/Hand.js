@@ -8,6 +8,11 @@ export default function Hand(props) {
     if(props.cards.length === 0){
         return null
     }
+    const drawCard = () => {
+        props.ws.send(JSON.stringify({
+            action: "Draw",
+        }))
+    }
     return (
         <div>
             <h3>Chat</h3>
@@ -15,6 +20,7 @@ export default function Hand(props) {
                 {props.cards.map((card, k)=>(
                     <UnoCard cardInfo={card} ws={props.ws} key={k+card.Color+card.Type+card.Number}/>
                 ))}
+                <button onClick={()=>drawCard()}>Draw Card</button>
             </div>
         </div>
     );
