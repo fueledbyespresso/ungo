@@ -80,17 +80,20 @@ func main() {
 		log.Println("Connected!")
 
 		username := registerUser(mainLobby, ws)
+		mainLobby.Mu.Lock()
 		mainLobby.Clients[ws] = game.Player{
 			Username: username,
 			Hand:     nil,
 		}
+		mainLobby.Mu.Unlock()
 		broadcastPlayerChange(mainLobby)
-
+		hubsMU.RLock()
 		keys := make([]string, 0, len(hubs))
 		for k := range hubs {
 			keys = append(keys, k)
 		}
 		jsonString, _ := json.Marshal(keys)
+		hubsMU.RUnlock()
 
 		// Broadcast all current lobbies to main lobby
 		mainLobby.Broadcast <- game.OutgoingMessage{
