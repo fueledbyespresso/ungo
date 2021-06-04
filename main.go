@@ -61,8 +61,11 @@ func main() {
 				removeClientFromHub(mainLobby, ws)
 				broadcastPlayerChange(mainLobby)
 			}
-			for _, hub := range hubs{
-				if _, ok := hub.Clients[ws] ; ok{
+			for host, hub := range hubs{
+				if player, ok := hub.Clients[ws] ; ok{
+					if host == player.Username{
+						endGame(hub)
+					}
 					removeClientFromHub(hub, ws)
 					broadcastPlayerChange(hub)
 				}
@@ -82,13 +85,7 @@ func main() {
 			Hand:     nil,
 		}
 		broadcastPlayerChange(mainLobby)
-		defer func() {
-			fmt.Println("Player Disconnected: ", username)
-			if hub, ok := hubs[username]; ok {
-				endGame(hub)
-				return
-			}
-		}()
+
 		keys := make([]string, 0, len(hubs))
 		for k := range hubs {
 			keys = append(keys, k)
@@ -207,7 +204,11 @@ func read(lobby *game.Hub, client *websocket.Conn, username string) {
 
 		switch message.Action {
 		case "CreateLobby":
-			lobby = createLobby(lobby, client, username)
+			if mainLobby != lobby{
+				break
+			}
+
+			lobby = createLobby(client, username)
 			break
 		case "DeleteLobby":
 			break
@@ -245,8 +246,10 @@ func startGame(lobby *game.Hub, client *websocket.Conn, username string) {
 		}
 	}
 	lobby.GameStarted = true
+	lobby.Clockwise = true
 	cardCounts := make(map[string]int)
 	for conn, player := range lobby.Clients {
+		lobby.TurnOrder = append(lobby.TurnOrder, conn)
 		cardCounts[player.Username] = 7
 		for i := 0; i < 7; i++ {
 			player.Hand = append(player.Hand, game.GenerateCard())
@@ -276,8 +279,7 @@ func startGame(lobby *game.Hub, client *websocket.Conn, username string) {
 	}
 }
 
-func createLobby(lobby *game.Hub, client *websocket.Conn, username string) *game.Hub{
-	removeClientFromHub(lobby, client)
+func createLobby(client *websocket.Conn, username string) *game.Hub{
 	newLobby := game.NewHub()
 	go newLobby.Run()
 	hubsMU.Lock()
@@ -299,8 +301,8 @@ func createLobby(lobby *game.Hub, client *websocket.Conn, username string) *game
 		Event:  "NewLobby",
 		Message: string(jsonString),
 	}
-
 	joinLobby(client, username, username)
+
 	return newLobby
 }
 
@@ -319,17 +321,10 @@ func joinLobby(client *websocket.Conn, lobbyName string, username string) *game.
 			}
 			return mainLobby
 		}
-		player := lobby.Clients[client]
+		player := mainLobby.Clients[client]
 		hubsMU.RUnlock()
 
-		player.Username = username
-
-		if err := client.WriteJSON(game.OutgoingMessage{
-			Event:   "JoinedLobby",
-			Message: lobbyName,
-		}); !errors.Is(err, nil) {
-			log.Printf("error occurred: %v", err)
-		}
+		fmt.Println("removing client")
 		removeClientFromHub(mainLobby, client)
 		hubsMU.RLock()
 		lobby.Clients[client] = player
@@ -337,6 +332,17 @@ func joinLobby(client *websocket.Conn, lobbyName string, username string) *game.
 
 		broadcastPlayerChange(lobby)
 		broadcastPlayerChange(mainLobby)
+		fmt.Println("Changes broadcasted")
+
+		lobby.Mu.Lock()
+		if err := client.WriteJSON(game.OutgoingMessage{
+			Event:   "JoinedLobby",
+			Message: lobbyName,
+		}); !errors.Is(err, nil) {
+			log.Printf("error occurred: %v", err)
+		}
+		lobby.Mu.Unlock()
+
 		return lobby
 	}
 
@@ -359,7 +365,6 @@ func drawCard(lobby *game.Hub, client *websocket.Conn, username string) {
 		player.Hand = append(player.Hand, game.GenerateCard())
 		lobby.Clients[client] = player
 		jsonString,_ := json.Marshal(lobby.Clients[client].Hand)
-		fmt.Println(lobby.Clients[client].Hand)
 		if err := client.WriteJSON(game.OutgoingMessage{
 			Event:   "HandChanged",
 			Message: string(jsonString),
@@ -375,7 +380,10 @@ func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, use
 	curTurn := lobby.CurrentTurn
 	lobby.Mu.RUnlock()
 	if curTurn == username{
+		lobby.Mu.RLock()
 		player := lobby.Clients[client]
+		lobby.Mu.RUnlock()
+
 		playerHasCard := false
 		var cardIndex int
 		for curCardIndex, card := range player.Hand {
@@ -385,6 +393,7 @@ func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, use
 				break
 			}
 		}
+		lobby.Mu.Lock()
 		if !playerHasCard{
 			if err := client.WriteJSON(game.OutgoingMessage{
 				Event:   "CardIsInvalid",
@@ -393,8 +402,12 @@ func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, use
 			}
 			return
 		}
+		lobby.Mu.Unlock()
 
+		lobby.Mu.RLock()
 		topCard := lobby.MostRecentCard
+		lobby.Mu.RUnlock()
+
 		cardIsvalid := false
 		if topCard.Color == playerCard.Color{
 			cardIsvalid = true
@@ -414,8 +427,8 @@ func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, use
 
 		if cardIsvalid{
 			fmt.Println("Card is valid")
-
 			nextPlayer := nextUser(lobby, username)
+			fmt.Println("Next player: ", nextPlayer.Username)
 			switch playerCard.Type {
 			case "Plus2":
 				for i := 0; i < 2; i++ {
@@ -466,17 +479,15 @@ func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, use
 			}
 		}
 
-		time.Sleep(1000)
-		lobby.Mu.RLock()
+		lobby.Mu.Lock()
 		jsonString,_ := json.Marshal(lobby.Clients[client].Hand)
-		fmt.Println(lobby.Clients[client].Hand)
 		if err := client.WriteJSON(game.OutgoingMessage{
 			Event:   "HandChanged",
 			Message: string(jsonString),
 		}); !errors.Is(err, nil) {
 			log.Printf("error occurred: %v", err)
 		}
-		lobby.Mu.RUnlock()
+		lobby.Mu.Unlock()
 	} else {
 		if err := client.WriteJSON(game.OutgoingMessage{
 			Event:   "TurnUnavailable",
@@ -486,48 +497,42 @@ func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, use
 	}
 }
 
-func nextUser(lobby *game.Hub, username string) *game.Player {
+func nextUser(lobby *game.Hub, username string) game.Player {
 	lobby.Mu.RLock()
 	defer lobby.Mu.RUnlock()
-	var p *game.Player
+	var playerPos int
 	if len(lobby.Clients) == 1 {
+		fmt.Println("Ending game")
 		endGame(lobby)
 	}
 	if lobby.Clockwise{
-		nextIsTurn := false
-
-		for _, player := range lobby.Clients {
-			if nextIsTurn {
-				nextIsTurn = false
-				p = &player
+		for index, playerConnection := range lobby.TurnOrder {
+			fmt.Println("---",index, " : ", lobby.Clients[playerConnection].Username)
+			if username == lobby.Clients[playerConnection].Username{
+				playerPos = index + 1
 				break
-			}
-			if player.Username == username {
-				nextIsTurn = true
 			}
 		}
-		if nextIsTurn == true {
-			for _, player := range lobby.Clients {
-				p = &player
-				break
-			}
+
+		if playerPos == len(lobby.TurnOrder){
+			playerPos = 0
 		}
 	}else{
-		i := 0
-		var temp *game.Player
-		for _, player := range lobby.Clients {
-			temp = &player
-			if player.Username == username{
-				if i != 0 {
-					break
-				}
+		for index, playerConnection := range lobby.TurnOrder {
+			fmt.Println("---",index, " : ", lobby.Clients[playerConnection].Username)
+			if username == lobby.Clients[playerConnection].Username{
+				playerPos = index - 1
+				break
 			}
-			i++
 		}
 
-		p = temp
+		if playerPos == -1{
+			playerPos = len(lobby.TurnOrder) - 1
+		}
 	}
-	return p
+	fmt.Println("Position of next player: ", playerPos)
+
+	return lobby.Clients[lobby.TurnOrder[playerPos]]
 }
 
 func returnToMainLobby(lobby *game.Hub, client *websocket.Conn, username string) *game.Hub{
@@ -585,8 +590,23 @@ func endGame(lobby *game.Hub) {
 }
 
 func removeClientFromHub(hub *game.Hub, client *websocket.Conn){
+	hub.Mu.RLock()
+	username := hub.Clients[client].Username
+	currentTurn := hub.CurrentTurn
+	isMainLobby := hub == mainLobby
+
+	hub.Mu.RUnlock()
+
+	if username == currentTurn || !isMainLobby {
+		hub.CurrentTurn = nextUser(hub, username).Username
+	}
 	hub.Mu.Lock()
 	delete(hub.Clients, client)
+	for index, playConnection := range hub.TurnOrder {
+		if playConnection == client{
+			hub.TurnOrder = append(hub.TurnOrder[:index], hub.TurnOrder[index+1:]...)
+		}
+	}
 	hub.Mu.Unlock()
 }
 

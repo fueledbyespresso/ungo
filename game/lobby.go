@@ -22,6 +22,7 @@ type OutgoingMessage struct {
 
 type Hub struct{
 	Clients   map[*websocket.Conn]Player
+	TurnOrder []*websocket.Conn
 	Broadcast chan OutgoingMessage
 	GameStarted bool
 	Clockwise bool
@@ -46,13 +47,13 @@ func (h *Hub) Run() {
 	for {
 		select {
 		case message := <-h.Broadcast:
-			h.Mu.RLock()
+			h.Mu.Lock()
 			for client, _ := range h.Clients {
 				if err := client.WriteJSON(message); !errors.Is(err, nil) {
 					log.Printf("error occurred: %v", err)
 				}
 			}
-			h.Mu.RUnlock()
+			h.Mu.Unlock()
 		}
 	}
 }
