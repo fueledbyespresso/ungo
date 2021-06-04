@@ -594,10 +594,10 @@ func removeClientFromHub(hub *game.Hub, client *websocket.Conn){
 	username := hub.Clients[client].Username
 	currentTurn := hub.CurrentTurn
 	isMainLobby := hub == mainLobby
-
+	count := len(hub.TurnOrder)
 	hub.Mu.RUnlock()
 
-	if username == currentTurn || !isMainLobby {
+	if (username == currentTurn || !isMainLobby) && count != 1{
 		hub.CurrentTurn = nextUser(hub, username).Username
 	}
 	hub.Mu.Lock()
