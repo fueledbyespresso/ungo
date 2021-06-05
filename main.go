@@ -389,8 +389,9 @@ func drawCard(lobby *game.Hub, client *websocket.Conn, username string) {
 func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, username string) {
 	lobby.Mu.RLock()
 	curTurn := lobby.CurrentTurn
+	gameStarted := lobby.GameStarted
 	lobby.Mu.RUnlock()
-	if curTurn == username{
+	if curTurn == username && gameStarted{
 		lobby.Mu.RLock()
 		player := lobby.Clients[client]
 		lobby.Mu.RUnlock()
@@ -464,6 +465,25 @@ func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, use
 			player.Hand = append(player.Hand[:cardIndex], player.Hand[cardIndex+1:]...)
 
 			lobby.Mu.Lock()
+			if len(player.Hand) == 0 {
+				lobby.Broadcast <- game.OutgoingMessage{
+					Event:   "GameWon",
+					Message: player.Username,
+				}
+				lobby.GameStarted = false
+				return
+			}else{
+				jsonString,_ := json.Marshal(lobby.Clients[client].Hand)
+				if err := client.WriteJSON(game.OutgoingMessage{
+					Event:   "HandChanged",
+					Message: string(jsonString),
+				}); !errors.Is(err, nil) {
+					log.Printf("error occurred: %v", err)
+				}
+			}
+			lobby.Mu.Unlock()
+
+			lobby.Mu.Lock()
 			lobby.Clients[client] = player
 			lobby.Mu.Unlock()
 
@@ -490,15 +510,6 @@ func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, use
 			}
 		}
 
-		lobby.Mu.Lock()
-		jsonString,_ := json.Marshal(lobby.Clients[client].Hand)
-		if err := client.WriteJSON(game.OutgoingMessage{
-			Event:   "HandChanged",
-			Message: string(jsonString),
-		}); !errors.Is(err, nil) {
-			log.Printf("error occurred: %v", err)
-		}
-		lobby.Mu.Unlock()
 	} else {
 		if err := client.WriteJSON(game.OutgoingMessage{
 			Event:   "TurnUnavailable",
