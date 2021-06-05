@@ -124,12 +124,13 @@ func broadcastPlayerChange(lobby *game.Hub) {
 	for _, player := range lobby.Clients {
 		players = append(players, player.Username)
 	}
+	lobby.Mu.RUnlock()
+
 	playersJSON, _ := json.Marshal(players)
 	lobby.Broadcast <- game.OutgoingMessage{
 		Event:   "PlayerChange",
 		Message: string(playersJSON),
 	}
-	lobby.Mu.RUnlock()
 }
 
 func registerUser(lobby *game.Hub, client *websocket.Conn) string {
@@ -336,7 +337,6 @@ func joinLobby(client *websocket.Conn, lobbyName string, username string) *game.
 		player := mainLobby.Clients[client]
 		hubsMU.RUnlock()
 
-		fmt.Println("removing client")
 		removeClientFromHub(mainLobby, client)
 		hubsMU.RLock()
 		lobby.Clients[client] = player
@@ -344,7 +344,6 @@ func joinLobby(client *websocket.Conn, lobbyName string, username string) *game.
 
 		broadcastPlayerChange(lobby)
 		broadcastPlayerChange(mainLobby)
-		fmt.Println("Changes broadcasted")
 
 		lobby.Mu.Lock()
 		if err := client.WriteJSON(game.OutgoingMessage{
@@ -555,11 +554,7 @@ func returnToMainLobby(lobby *game.Hub, client *websocket.Conn, username string)
 		Username: username,
 		Hand:     nil,
 	}
-	mainLobby.Mu.RLock()
-	player := mainLobby.Clients[client]
-	mainLobby.Mu.RUnlock()
 
-	player.Username = username
 	// Return all current lobbies
 	if err := client.WriteJSON(game.OutgoingMessage{
 		Event:   "ReturnedToMainLobby",
@@ -571,6 +566,7 @@ func returnToMainLobby(lobby *game.Hub, client *websocket.Conn, username string)
  	}
 
 	broadcastPlayerChange(mainLobby)
+
 	return mainLobby
 }
 
@@ -609,7 +605,8 @@ func removeClientFromHub(hub *game.Hub, client *websocket.Conn){
 	count := len(hub.TurnOrder)
 	hub.Mu.RUnlock()
 
-	if (username == currentTurn || !isMainLobby) && count != 1{
+	if (username == currentTurn || !isMainLobby) && count > 1{
+		fmt.Println("finding next user")
 		hub.CurrentTurn = nextUser(hub, username).Username
 	}
 	hub.Mu.Lock()
