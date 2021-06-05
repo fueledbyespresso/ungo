@@ -1,10 +1,20 @@
-import {React, useEffect} from 'react';
+import {React, useEffect, useState} from 'react';
 import "./Chat.scss"
 
 export default function Chat(props) {
+    const [input, setInput] = useState("")
+
     useEffect(() => {
         console.log(props.messages.length > 0)
     }, [props.messages])
+
+    const sendMessage = () => {
+        props.ws.send(JSON.stringify({
+            action: "SendMessageToLobby",
+            message: input
+        }))
+        setInput("")
+    }
 
     return (
         <div className="chat">
@@ -16,8 +26,8 @@ export default function Chat(props) {
                     <div key={k}>{message.message}</div>
                 )
             ))}
-            <textarea/>
-            <button>Send</button>
+            <textarea value={input} onChange={e=>setInput(e.target.value)}/>
+            <button onClick={()=>sendMessage()}>Send</button>
         </div>
     );
 }

@@ -44,16 +44,18 @@ function App() {
 
             switch (data.event) {
                 case "NewMessage":
+                    let messageJSON = JSON.parse(data.message)
                     setMessages(oldMessages => [...oldMessages,
                         {
                             "type": "user",
-                            "sender": data.message.sender,
-                            "message": data.message.message
+                            "sender": messageJSON.sender,
+                            "message": messageJSON.message
                         }])
                     break
                 case "Registered":
                     setInMainLobby(true)
                     setUserName(data.message)
+
                     setMessages(oldMessages => [...oldMessages,
                         {
                             "type": "SYSTEM",
@@ -152,7 +154,7 @@ function App() {
                 <CreateLobby ws={socket}/>
                 <Lobbies lobbyList={lobbies} ws={socket}/>
                 <Players playerList={playerList}/>
-                <Chat messages={messages}/>
+                <Chat messages={messages} ws={socket}/>
             </div>
         )
     } else {
@@ -179,7 +181,7 @@ function App() {
                 {gameStarted && <h2>Next Turn: {currentPlayer}</h2>}
 
                 {gameStarted && <Hand cards={hand} ws={socket}/>}
-                <Chat messages={messages}/>
+                <Chat messages={messages} ws={socket}/>
             </div>
         );
     }
