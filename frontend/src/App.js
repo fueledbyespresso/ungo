@@ -7,14 +7,14 @@ import Lobbies from "./Hooks/Lobbies/Lobbies";
 import Hand from "./Hooks/Hand/Hand";
 import CardCounts from "./Hooks/CardCounts/CardCounts";
 
-const  HOST  = process.env.REACT_APP_HOST
-const  PORT  = process.env.REACT_APP_PORT
+const HOST = process.env.REACT_APP_HOST
+const PORT = process.env.REACT_APP_PORT
 
 let wsPath
-if(process.env.NODE_ENV === "production"){
-    wsPath = "wss://"+HOST+"/ws"
-}else {
-    wsPath = "ws://"+HOST+":"+PORT+"/ws"
+if (process.env.NODE_ENV === "production") {
+    wsPath = "wss://" + HOST + "/ws"
+} else {
+    wsPath = "ws://" + HOST + ":" + PORT + "/ws"
 }
 
 const socket = new WebSocket(wsPath)
@@ -41,25 +41,44 @@ function App() {
 
         socket.onmessage = (e) => {
             let data = JSON.parse(e.data)
-            setMessages(oldMessages => [...oldMessages, data.event])
 
             switch (data.event) {
                 case "NewMessage":
-                    setMessages(oldMessages => [...oldMessages, data.event])
+                    setMessages(oldMessages => [...oldMessages,
+                        {
+                            "type": "user",
+                            "sender": data.message.sender,
+                            "message": data.message.message
+                        }])
                     break
                 case "Registered":
                     setInMainLobby(true)
                     setUserName(data.message)
+                    setMessages(oldMessages => [...oldMessages,
+                        {
+                            "type": "SYSTEM",
+                            "message": "Welcome, " + data.message
+                        }])
                     break
                 case "PlayerChange":
                     setPlayerList(JSON.parse(data.message))
                     break
                 case "ReturnedToMainLobby":
                     setInMainLobby(true)
+                    setMessages(oldMessages => [...oldMessages,
+                        {
+                            type: "SYSTEM",
+                            message: "Returning to main lobby"
+                        }])
                     break
                 case "JoinedLobby":
                     setLobbyName(data.message)
                     setInMainLobby(false)
+                    setMessages(oldMessages => [...oldMessages,
+                        {
+                            type: "SYSTEM",
+                            message: "Joined " +data.message +"'s lobby"
+                        }])
                     break
                 case "NewLobby":
                     setLobbies(data.message)
@@ -78,20 +97,22 @@ function App() {
                     setHand(JSON.parse(data.message))
                     break
                 case "NextTurn":
-                    console.log(data)
                     setCurrentPlayer(data.message)
                     setHands(data.card_count)
                     setCurrentCard(data.card_payload)
-
                     break
                 default:
                     break
             }
         };
 
-        socket.onclose = () =>{
+        socket.onclose = () => {
             setIsConnected(false)
-            setMessages(oldMessages => [...oldMessages, "Connection closed"])
+            setMessages(oldMessages => [...oldMessages,
+                {
+                    type: "SYSTEM",
+                    message: "You have been disconnected from the server"
+                }])
             console.log("Connection closed")
         }
     }, [lobbies, messages])
@@ -134,26 +155,26 @@ function App() {
                 <Chat messages={messages}/>
             </div>
         )
-    }else {
+    } else {
         return (
             <div className="App">
                 <div>Hello, {username}</div>
                 <h2>{lobbyName}'s Game</h2>
-                <button onClick={()=>returnToMainLobby()}>Return to Main Menu</button>
+                <button onClick={() => returnToMainLobby()}>Return to Main Menu</button>
                 <Players playerList={playerList}/>
                 <CardCounts hands={hands}/>
-                {username === lobbyName && !gameStarted  &&
-                    (<button onClick={startGame}>Start game</button>)
+                {username === lobbyName && !gameStarted &&
+                (<button onClick={startGame}>Start game</button>)
                 }
                 {gameStarted &&
-                    <div>
-                        <h3>Top Card: </h3>
-                        <div className={"uno-card"} style={{borderColor: currentCard.Color}}>
-                            <div>{currentCard.Type}</div>
-                            <div>{currentCard.Number}</div>
-                            <div>{currentCard.Color}</div>
-                        </div>
+                <div>
+                    <h3>Top Card: </h3>
+                    <div className={"uno-card"} style={{borderColor: currentCard.Color}}>
+                        <div>{currentCard.Type}</div>
+                        <div>{currentCard.Number}</div>
+                        <div>{currentCard.Color}</div>
                     </div>
+                </div>
                 }
                 {gameStarted && <h2>Next Turn: {currentPlayer}</h2>}
 

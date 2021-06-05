@@ -231,7 +231,7 @@ func read(lobby *game.Hub, client *websocket.Conn, username string) {
 			lobby = returnToMainLobby(lobby, client, username)
 			break
 		case "SendMessageToLobby":
-			sendMessageToLobby(lobby, message.Message)
+			sendMessageToLobby(lobby, message.Message, username)
 			break
 		}
 		println("Completed action: ", message.Action)
@@ -241,9 +241,18 @@ func read(lobby *game.Hub, client *websocket.Conn, username string) {
 func startGame(lobby *game.Hub, client *websocket.Conn, username string) {
 	lobby.Mu.Lock()
 	defer lobby.Mu.Unlock()
+
 	if hubs[username] != lobby{
 		if err := client.WriteJSON(game.OutgoingMessage{
 			Event:   "PermissionDenied",
+		}); !errors.Is(err, nil) {
+			log.Printf("error occurred: %v", err)
+		}
+	}
+
+	if len(lobby.Clients) == 1 {
+		if err := client.WriteJSON(game.OutgoingMessage{
+			Event:   "CannotStartGameWith1Player",
 		}); !errors.Is(err, nil) {
 			log.Printf("error occurred: %v", err)
 		}
@@ -613,10 +622,22 @@ func removeClientFromHub(hub *game.Hub, client *websocket.Conn){
 	hub.Mu.Unlock()
 }
 
-func sendMessageToLobby(lobby *game.Hub, message string) {
+func sendMessageToLobby(lobby *game.Hub, message string, username string) {
+	messagePayload := struct {
+		Sender string `json:"sender"`
+		Message string `json:"message"`
+	} {
+		username,
+		message,
+	}
+
+	messageString, err := json.Marshal(messagePayload)
+	if err != nil {
+		return
+	}
 	broadcast := game.OutgoingMessage{
 		Event:   "NewMessage",
-		Message: message,
+		Message: string(messageString),
 	}
 
 	lobby.Broadcast <- broadcast

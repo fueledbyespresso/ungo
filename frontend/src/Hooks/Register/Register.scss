@@ -1,18 +1,18 @@
-.register{
+.register {
   display: flex;
   flex-flow: column wrap;
   justify-content: center;
   align-items: center;
 
-  input{
+  input {
     border: #dddddd solid .15em;
     border-radius: .5em;
     margin-top: .5em;
   }
 
-  button{
+  button {
     background: #ddd;
-    border:none;
+    border: none;
     border-radius: .5em;
     padding: .25em 1em;
     margin-top: .5em;

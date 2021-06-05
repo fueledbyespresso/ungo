@@ -26,14 +26,14 @@ export default function UnoCard(props) {
                     <button onChange={() => updateColor("red")}>red</button>
                     <button onChange={() => updateColor("blue")}>blue</button>
                 </div>
-            ):(
+            ) : (
                 <Fragment>
                     <div>{card.Number}</div>
                     <div>{card.Color}</div>
                 </Fragment>
             )}
 
-            <button onClick={()=>playCard(card)}>Play Card</button>
+            <button onClick={() => playCard(card)}>Play Card</button>
         </div>
     );
 

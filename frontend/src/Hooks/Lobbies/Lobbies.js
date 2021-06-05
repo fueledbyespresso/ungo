@@ -1,7 +1,7 @@
 import React from 'react';
 
 export default function Lobbies(props) {
-    if(props.lobbyList.length === 0){
+    if (props.lobbyList.length === 0) {
         return null
     }
     let lobbiesArray = JSON.parse(props.lobbyList)
@@ -15,8 +15,8 @@ export default function Lobbies(props) {
     return (
         <div>
             Lobbies
-            {lobbiesArray != null && lobbiesArray.map((lobby)=>(
-                <button onClick={()=>joinLobby(lobby)}>{lobby}'s game</button>
+            {lobbiesArray != null && lobbiesArray.map((lobby) => (
+                <button onClick={() => joinLobby(lobby)}>{lobby}'s game</button>
             ))}
         </div>
     );

@@ -1,0 +1,11 @@
+.chat{
+  background-color: #dddddd;
+  position: fixed;
+  right: 0;
+  bottom: 0;
+
+  textarea{
+    resize: vertical;
+    width: 100%;
+  }
+}
