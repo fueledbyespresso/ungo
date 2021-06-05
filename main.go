@@ -405,7 +405,7 @@ func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, use
 				break
 			}
 		}
-		lobby.Mu.Lock()
+
 		if !playerHasCard{
 			if err := client.WriteJSON(game.OutgoingMessage{
 				Event:   "CardIsInvalid",
@@ -414,7 +414,6 @@ func takeTurn(lobby *game.Hub, client *websocket.Conn, playerCard game.Card, use
 			}
 			return
 		}
-		lobby.Mu.Unlock()
 
 		lobby.Mu.RLock()
 		topCard := lobby.MostRecentCard
